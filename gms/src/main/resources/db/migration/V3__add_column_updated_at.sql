@@ -1,0 +1,2 @@
+ALTER TABLE customers
+    ADD updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
