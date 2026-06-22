@@ -2,10 +2,7 @@ package gms.example.gms.customer.controller;
 
 import gms.example.gms.common.ApiResponse;
 import gms.example.gms.common.PageResponse;
-import gms.example.gms.customer.dto.CreateCustomerRequest;
-import gms.example.gms.customer.dto.CreateVehicleRequest;
-import gms.example.gms.customer.dto.CustomerResponse;
-import gms.example.gms.customer.dto.VehicleResponse;
+import gms.example.gms.customer.dto.*;
 import gms.example.gms.customer.service.CustomerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +26,18 @@ public class CustomerController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(customerService.createCustomer(request)));
     }
 
-    @GetMapping("{id}")
+    @PatchMapping("/{id}")
+    ResponseEntity<ApiResponse<CustomerResponse>> updateCustomer(@PathVariable UUID id, @RequestBody @Valid UpdateCustomerRequest request) {
+        return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(customerService.updateCustomer(id, request)));
+    }
+
+    @DeleteMapping("/{id}")
+    ResponseEntity<ApiResponse<String>> deleteCustomer(@PathVariable UUID id) {
+        customerService.deleteCustomer(id);
+        return ResponseEntity.ok(ApiResponse.success("Customer deleted successfully"));
+    }
+
+    @GetMapping("/{id}")
     ResponseEntity<ApiResponse<CustomerResponse>> findCustomerById(@PathVariable UUID id) {
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(customerService.findCustomerById(id)));
     }

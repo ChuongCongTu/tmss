@@ -1,15 +1,21 @@
 package gms.example.gms.part.service;
 
+import gms.example.gms.common.PageResponse;
 import gms.example.gms.common.exception.BusinessException;
 import gms.example.gms.common.exception.ResourceNotFoundException;
+import gms.example.gms.customer.entity.Customer;
 import gms.example.gms.part.dto.AdjustPartStockRequest;
 import gms.example.gms.part.dto.CreatePartRequest;
 import gms.example.gms.part.dto.PartResponse;
+import gms.example.gms.part.dto.UpdatePartRequest;
 import gms.example.gms.part.entity.Part;
 import gms.example.gms.part.entity.StockAdjustment;
 import gms.example.gms.part.repository.PartRepository;
+import gms.example.gms.part.repository.RepairOrderRepository;
 import gms.example.gms.part.repository.StockAdjustmentRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +26,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PartService {
     private final PartRepository partRepository;
+    private final RepairOrderRepository repairOrderRepository;
     private final StockAdjustmentRepository stockAdjustmentRepository;
 
     public PartResponse createPart(CreatePartRequest request) {
@@ -45,10 +52,30 @@ public class PartService {
     }
 
     @Transactional(readOnly = true)
-    public List<PartResponse> findAllPart() {
-        List<Part> part = partRepository.findAll();
+    public PageResponse<PartResponse> search(String partNo, Pageable pageable) {
+        Page<Part> parts = partRepository.findAll(partNo, pageable);
 
-        return part.stream().map(this::toResponse).toList();
+        return PageResponse.from(parts.map(this::toResponse));
+    }
+
+    @Transactional
+    public PartResponse update(UUID id, UpdatePartRequest request) {
+        Part part = partRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("part not found"));
+
+        if (request.getPartNo() != null) {
+            part.setPartNo(request.getPartNo());
+        }
+
+        if (request.getPartName() != null) {
+            part.setPartName((request.getPartName()));
+        }
+
+        if (request.getPrice() != null) {
+            part.setPrice(request.getPrice());
+        }
+
+        return toResponse(part);
     }
 
     @Transactional

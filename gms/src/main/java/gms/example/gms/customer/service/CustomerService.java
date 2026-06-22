@@ -3,10 +3,7 @@ package gms.example.gms.customer.service;
 import gms.example.gms.common.PageResponse;
 import gms.example.gms.common.exception.BusinessException;
 import gms.example.gms.common.exception.ResourceNotFoundException;
-import gms.example.gms.customer.dto.CreateCustomerRequest;
-import gms.example.gms.customer.dto.CreateVehicleRequest;
-import gms.example.gms.customer.dto.CustomerResponse;
-import gms.example.gms.customer.dto.VehicleResponse;
+import gms.example.gms.customer.dto.*;
 import gms.example.gms.customer.entity.Customer;
 import gms.example.gms.customer.entity.Vehicle;
 import gms.example.gms.customer.repository.CustomerRepository;
@@ -35,6 +32,37 @@ public class CustomerService {
         customer.setPhone(request.getPhone());
         customerRepository.save(customer);
         return toCustomerResponse(customer);
+    }
+
+    @Transactional
+    public CustomerResponse updateCustomer(UUID id, UpdateCustomerRequest request) {
+        Customer customer = customerRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("customer not found"));
+
+        if (request.getFullName() != null) {
+            customer.setFullName(request.getFullName());
+        }
+
+        if (request.getPhone() != null) {
+            customer.setPhone(request.getPhone());
+        }
+
+        if (request.getAddress() != null) {
+            customer.setAddress(request.getAddress());
+        }
+
+        return toCustomerResponse(customer);
+    }
+
+    public void deleteCustomer(UUID uuid) {
+        Customer customer = customerRepository.findById(uuid)
+                .orElseThrow(() -> new ResourceNotFoundException("customer not found"));
+
+        if (vehicleRepository.existsByCustomer(customer)) {
+            throw new BusinessException("Khách hàng còn xe, không thể xóa");
+        }
+
+        customerRepository.delete(customer);
     }
 
     public CustomerResponse findCustomerById(UUID uuid) {

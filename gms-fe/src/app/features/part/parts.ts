@@ -1,48 +1,57 @@
-import {Component, OnInit, inject, signal, DestroyRef} from '@angular/core';
-import {FormBuilder, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
-import {takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import {Component, DestroyRef, inject, OnInit, signal} from '@angular/core';
+import {FormBuilder, FormsModule, ReactiveFormsModule, Validators} from "@angular/forms";
+import {CustomersService} from '../customers/customers.service';
 import {catchError, debounceTime, distinctUntilChanged, of, Subject, switchMap, tap} from 'rxjs';
-import {CustomersService} from './customers.service';
+import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
+import {PartsService} from './parts.service';
+import {AuthService, Role} from '../../core/auth.service';
 
-interface Customer {
+interface Part {
   id: string;
-  fullName: string;
-  address: string;
-  phone: string;
+  partNo: string;
+  partName: string;
+  price: number;
+  quantity: number;
   createdAt: Date;
   updatedAt: Date;
 }
 
 @Component({
-  selector: 'app-customers',
-  standalone: true,
+  selector: 'app-parts',
   imports: [
-    FormsModule,
     ReactiveFormsModule,
+    FormsModule
   ],
-  templateUrl: './customers.html',
-  styleUrl: './customers.css',
+  templateUrl: './parts.html',
+  styleUrl: './parts.css',
 })
-export class Customers implements OnInit {
+export class Parts implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly fb = inject(FormBuilder);
-  private readonly customerService = inject(CustomersService);
+  private readonly partsService = inject(PartsService);
+  private readonly authService = inject(AuthService);
 
   // state phân trang
   page = signal(0);
   size = signal(10);
   totalPages = signal(0);
   totalElements = signal(0);
-  fullName = '';
-  phone = '';
+  partNo = '';
+  partName = '';
   loading = signal(false);
   saving = signal(false);
 
-  customers = signal<Customer[]>([]);
+  parts = signal<Part[]>([]);
   errorMsg = signal('');
   isShowModel = signal(false);
   // null = đang thêm mới; có id = đang sửa khách hàng đó
   editingId = signal<string | null>(null);
+  role = signal<Role | null>(this.authService.getRole());
+
+  // điều chỉnh tồn kho
+  isShowStockModal = signal(false);
+  adjustingPart = signal<Part | null>(null);
+  stockErrorMsg = signal('');
 
   // mỗi khi cần tải lại danh sách thì bắn vào đây
   private readonly reload$ = new Subject<void>();
@@ -50,9 +59,15 @@ export class Customers implements OnInit {
   private readonly search$ = new Subject<string>();
 
   form = this.fb.nonNullable.group({
-    fullName: ['', [Validators.required]],
-    phone: ['', [Validators.required]],
-    address: [''],
+    partNo: ['', [Validators.required, Validators.maxLength(20)]],
+    partName: [''],
+    price: [0, Validators.required],
+    quantity: [0, Validators.required],
+  });
+
+  stockForm = this.fb.nonNullable.group({
+    delta: [0, [Validators.required]],
+    reason: ['', [Validators.required]],
   });
 
   ngOnInit(): void {
@@ -63,9 +78,9 @@ export class Customers implements OnInit {
           this.errorMsg.set('');
         }),
         switchMap(() =>
-          this.fetchCustomers().pipe(
+          this.fetchParts().pipe(
             catchError(() => {
-              this.errorMsg.set('Không tải được danh sách khách hàng');
+              this.errorMsg.set('Không tải được danh sách phụ tùng');
               this.loading.set(false);
               return of(null);
             })
@@ -76,7 +91,7 @@ export class Customers implements OnInit {
       .subscribe((res) => {
         if (!res) return; // trường hợp lỗi đã xử lý ở catchError
         const page = res.data;
-        this.customers.set(page?.content ?? []);
+        this.parts.set(page?.content ?? []);
         this.totalPages.set(page?.totalPages ?? 0);
         this.totalElements.set(page?.totalElements ?? 0);
         this.loading.set(false);
@@ -98,17 +113,17 @@ export class Customers implements OnInit {
     this.reload$.next();
   }
 
-  private fetchCustomers() {
-    return this.customerService.search({
+  private fetchParts() {
+    return this.partsService.search({
       page: this.page(),
       size: this.size(),
-      fullName: this.fullName,
-      phone: this.phone,
+      partNo: this.partNo,
+      partName: this.partName,
     });
   }
 
   onSearchChange() {
-    this.search$.next(`${this.fullName}|${this.phone}`);
+    this.search$.next(`${this.partNo}|${this.partName}`);
   }
 
   goTo(p: number): void {
@@ -139,17 +154,18 @@ export class Customers implements OnInit {
   }
 
   /** Mở modal ở chế độ sửa: nạp dữ liệu khách hàng vào form. */
-  openEditModal(customer: Customer): void {
-    this.editingId.set(customer.id);
+  openEditModal(part: Part): void {
+    this.editingId.set(part.id);
     this.form.setValue({
-      fullName: customer.fullName,
-      phone: customer.phone,
-      address: customer.address ?? '',
+      partNo: part.partNo,
+      partName: part.partName,
+      price: part.price ?? 0,
+      quantity: part.quantity ?? 0,
     });
     this.isShowModel.set(true);
   }
 
-  onCreateOrUpdateCustomer() {
+  onCreateOrUpdatePart() {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -160,8 +176,8 @@ export class Customers implements OnInit {
     const id = this.editingId();
     const payload = this.form.getRawValue();
     const request$ = id
-      ? this.customerService.update(id, payload)
-      : this.customerService.create(payload);
+      ? this.partsService.update(id, payload)
+      : this.partsService.create(payload);
 
     request$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
@@ -186,23 +202,50 @@ export class Customers implements OnInit {
     this.form.reset();
   }
 
-  onDelete(customer: Customer): void {
-    const ok = confirm(`Xóa khách hàng "${customer.fullName}"?`);
-    if (!ok) return;
+  get sf() {
+    return this.stockForm.controls;
+  }
 
-    this.customerService
-      .delete(customer.id)
+  /** Mở form điều chỉnh tồn kho cho 1 phụ tùng. */
+  openStockModal(part: Part): void {
+    this.adjustingPart.set(part);
+    this.stockForm.reset({ delta: 0, reason: '' });
+    this.stockErrorMsg.set('');
+    this.isShowStockModal.set(true);
+  }
+
+  closeStockModal(): void {
+    this.isShowStockModal.set(false);
+    this.adjustingPart.set(null);
+    this.stockErrorMsg.set('');
+    this.stockForm.reset();
+  }
+
+  onAdjustStock(): void {
+    const part = this.adjustingPart();
+    if (!part || this.stockForm.invalid) {
+      this.stockForm.markAllAsTouched();
+      return;
+    }
+
+    this.saving.set(true);
+    this.stockErrorMsg.set('');
+
+    this.partsService
+      .adjustPartStock(part.id, this.stockForm.getRawValue())
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          // nếu vừa xóa dòng cuối của trang (và không phải trang đầu) thì lùi 1 trang
-          if (this.customers().length === 1 && this.page() > 0) {
-            this.page.set(this.page() - 1);
-          }
+          this.saving.set(false);
+          this.closeStockModal();
           this.reload$.next();
         },
-        error: () => {
-          this.errorMsg.set('Xóa thất bại. Vui lòng thử lại.');
+        error: (err) => {
+          // hiển thị message thật từ backend nếu có, ngay trên popup
+          this.stockErrorMsg.set(
+            err?.error?.message ?? 'Điều chỉnh tồn kho thất bại. Vui lòng thử lại.'
+          );
+          this.saving.set(false);
         },
       });
   }

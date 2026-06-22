@@ -284,3 +284,52 @@ observable dài hạn -> takeUntilDestroyed/async pipe/toSignal; 401 vs 403; int
 ### ⏭️ Ticket FE #2 — Customer Management (NEXT)
 List (phân trang + tìm kiếm) + form tạo/sửa (Reactive Forms, khác ngModel) + chi tiết + danh sách xe. Signals cho state list.
 **BE PHẢI PHÁT TRIỂN THÊM:** GET /api/customers hiện CHƯA phân trang -> thêm Pageable (đúng kịch bản FE lộ ra việc BE cần làm).
+
+### ✅ Ticket FE #2 — Customer Management (list+CRUD+phân trang) — DONE (2026-06-18)
+- **BE thêm:** GET /api/customers phân trang (Pageable + Page->PageResponse DTO, KHÔNG trả Page thô); search
+  fullName/phone optional (member chọn Specification; bug đã fix: ko truyền filter -> phải trả TẤT CẢ, ko phải LIKE %null% rỗng).
+  PATCH /api/customers/{id} (partial update, set field != null, dirty checking KHÔNG save thủ công); DELETE /{id}
+  (CẤM xóa khi còn xe -> BusinessException 400 "Khách hàng còn xe, không thể xóa", tránh nổ 409 FK khó hiểu / mất dữ liệu lịch sử).
+  Verified curl: phân trang qua nhiều trang (OFFSET đúng), search, blank->trả tất cả, PATCH 200, DELETE no-car 200, DELETE has-car 400.
+- **FE (Angular hiện đại):** features/customers (component + service). List signals (customers/page/totalPages/totalElements/loading).
+  Search: ngModelChange -> Subject + debounceTime(300) + distinctUntilChanged. MỘT đường load duy nhất: reload$ Subject +
+  switchMap (chống race khi đổi trang nhanh + hủy request cũ) — đã gộp, bỏ loadCustomers() trùng. Đổi trang/search/create đều reload$.next().
+  Form: Reactive Forms (fb.nonNullable.group, formControlName, Validators, markAllAsTouched) KHÁC ngModel ở login.
+  Modal create. takeUntilDestroyed(destroyRef) chống leak. Mọi HTTP gọi qua CustomersService (component ko đụng HttpClient).
+- **Validation FE phải KHỚP BE** (đã sửa: bỏ Validators.required cho address vì BE nullable — đừng chặt hơn BE vô cớ).
+
+**Bài học member nắm:** PUT (full replace) vs PATCH (partial) — code set-field-!=-null là PATCH semantics nên đặt @PatchMapping;
+DELETE dữ liệu có tham chiếu FK phải có chủ đích (cấm/soft-delete/cascade) — KHÔNG để nổ 409 ngẫu nhiên; Reactive Forms vs
+template-driven; debounce + switchMap chống spam request + race; mọi gọi API dồn vào service (component ko biết URL);
+state component nên signal đồng bộ (sẵn sàng zoneless).
+
+**Bài học điều tra (LEAD tự rút):** lead test PUT trong khi member đã đổi sang PATCH -> kết luận sai "bug 403" (thực ra
+PUT ko còn handler). Phải KIỂM CODE/trạng thái thật (grep @*Mapping) TRƯỚC khi test — đúng bài học "nhìn data thật trước khi kết luận", áp cho cả leader.
+
+### ⏭️ TIẾP THEO (chưa chốt): nút Sửa/Xóa trên FE customer (gọi PATCH/DELETE + xác nhận xóa), hoặc xem chi tiết + danh sách xe,
+hoặc nhảy module mới (Phụ tùng/Kho FE — có concurrency; Repair Order FE). Member chọn đi sâu Customer hay mở rộng.
+
+### ✅ Ticket FE #3 — Parts & Inventory (FE) — DONE (2026-06-21)
+- **BE:** GET /api/parts thêm phân trang (Pageable -> PageResponse, tái dùng pattern customer) + search partNo/partName optional.
+  PATCH /api/parts/{id} (update). KHÔNG có DELETE part (đã thêm rồi BỎ — xem dưới). stock-adjustments giữ nguyên (ticket #3).
+- **FE features/part/:** list signals + reload$/switchMap + debounce search (copy pattern customer — chấp nhận, rule-of-three chưa tới).
+  Reactive Forms tạo/sửa (editingId). **Điều chỉnh kho** (đặc thù module Kho): stockForm delta+reason -> POST stock-adjustments,
+  bắt lỗi BE hiện message thật (err.error.message) khi xuất quá tồn (400).
+- **Phân quyền FE (UX) + BE (thật) — verified:** AuthService.role signal (lưu localStorage gms_role, set lúc login, clear logout) +
+  getRole/hasRole. Template @if (role()===MANAGER) ẩn nút tạo/sửa/điều-chỉnh. BE: RECEPTIONIST POST parts -> 403, POST
+  stock-adjustments -> 403, GET parts -> 200 (verified curl). => FE ẩn nút chỉ UX, BE mới chặn thật (gọi thẳng API vẫn 403).
+- **Quyết định nghiệp vụ: part KHÔNG hard-delete** (nằm trong repair_order_items lịch sử -> xóa nổ 409 FK / mồ côi phiếu,
+  GIỐNG bug delete-customer-có-xe). Đã bỏ TRỌN nút+method+API ở cả FE (html/component/service) lẫn BE (controller/service).
+  Bài học: bỏ tính năng = bỏ HẾT mọi tầng (chỉ ẩn nút FE mà giữ API = còn cửa hậu, gọi thẳng vẫn xóa được).
+
+**Bài học member nắm/lặp:** pattern "xóa thực thể có dữ liệu tham chiếu FK" xuất hiện LẦN 2 (customer-có-xe, part-trong-phiếu)
+-> cùng cách xử (cấm + message tử tế, HOẶC không cho xóa); message gộp DataIntegrityViolationException ("đã tồn tại HOẶC
+vi phạm ràng buộc") đã đánh lừa điều tra 2 lần -> NÊN log chi tiết server (member chưa làm, khuyến nghị).
+
+**Hành vi:** member 3 lần báo "đã sửa/bỏ/done" khi code CHƯA đụng hoặc còn sót dead code (onDelete/delete service) ->
+vẫn cần tự grep/đọc lại TRƯỚC khi báo done. Tiến bộ: phần BE (đóng cửa hậu DELETE) + điều chỉnh kho + phân quyền làm đúng & đủ.
+
+## TRANG THAI TONG: BE 6 module (customer/vehicle, part/inventory, repair-order, invoice, staff/security) + FE Angular
+hiện đại (login, customer CRUD, part/inventory CRUD+adjust+phân quyền). 2 module fullstack hoàn chỉnh (customer, part).
+KNOWN LIMITATIONS (chưa làm): register vẫn permitAll; /actuator/health 403; JWT secret nên ra env; refresh token;
+N+1 ở repair-order toResponse; chưa có test tự động (member tự nhận yếu testing — hướng đáng làm tiếp).

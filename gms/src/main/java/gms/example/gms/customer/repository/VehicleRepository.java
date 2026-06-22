@@ -11,4 +11,6 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
     boolean existsByPlateNo(String plateNo);
 
     List<Vehicle> findAllByCustomer(Customer customer);
+
+    boolean existsByCustomer(Customer customer);
 }

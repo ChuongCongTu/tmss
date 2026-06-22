@@ -1,7 +1,9 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { ApiResponse } from './models';
+
+export type Role = 'RECEPTIONIST' | 'TECHNICIAN' | 'MANAGER';
 
 export interface LoginResponseData {
   id: string;
@@ -19,15 +21,34 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly api = 'http://localhost:8080/api';
   private readonly TOKEN_KEY = 'gms_token';
+  private readonly ROLE_KEY = 'gms_role';
+
+  // role hiện tại; khởi tạo từ localStorage để sống sót qua reload
+  readonly role = signal<Role | null>(localStorage.getItem(this.ROLE_KEY) as Role | null);
 
   login(username: string, password: string): Observable<ApiResponse<LoginResponseData>> {
     return this.http
       .post<ApiResponse<LoginResponseData>>(`${this.api}/auth/login`, { username, password })
-      .pipe(tap((res) => localStorage.setItem(this.TOKEN_KEY, res.data.token)));
+      .pipe(
+        tap((res) => {
+          localStorage.setItem(this.TOKEN_KEY, res.data.token);
+          localStorage.setItem(this.ROLE_KEY, res.data.role);
+          this.role.set(res.data.role as Role);
+        })
+      );
   }
 
   getToken(): string | null {
     return localStorage.getItem(this.TOKEN_KEY);
+  }
+
+  getRole(): Role | null {
+    return this.role();
+  }
+
+  hasRole(...roles: Role[]): boolean {
+    const current = this.role();
+    return current !== null && roles.includes(current);
   }
 
   isLoggedIn(): boolean {
@@ -44,6 +65,8 @@ export class AuthService {
 
   logout(): void {
     localStorage.removeItem(this.TOKEN_KEY);
+    localStorage.removeItem(this.ROLE_KEY);
+    this.role.set(null);
   }
 
   /** Reads the JWT `exp` claim (Unix seconds) and checks it against now. */

@@ -1,0 +1,321 @@
+<div class="mx-auto max-w-5xl px-6 py-8">
+  <div class="mb-5 flex items-center justify-between">
+    <h2 class="text-xl font-semibold text-slate-800">Danh sách phụ tùng</h2>
+    @if (role() === 'MANAGER') {
+      <button
+        type="button"
+        (click)="openCreateModal()"
+        class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+      >
+        <span class="text-base leading-none">+</span> Thêm phụ tùng
+      </button>
+    }
+  </div>
+
+  <!-- Search filter -->
+  <div class="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="flex flex-wrap items-end gap-4">
+      <div class="flex-1 min-w-[180px]">
+        <label class="mb-1.5 block text-xs font-medium text-slate-500">Mã phụ tùng</label>
+        <input
+          type="text"
+          placeholder="Tìm theo mã phụ tùng..."
+          [(ngModel)]="partNo"
+          (ngModelChange)="onSearchChange()"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+        />
+      </div>
+      <div class="flex-1 min-w-[180px]">
+        <label class="mb-1.5 block text-xs font-medium text-slate-500">Tên phụ tùng</label>
+        <input
+          type="text"
+          placeholder="Tìm theo Tên phụ tùng..."
+          [(ngModel)]="partName"
+          (ngModelChange)="onSearchChange()"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+        />
+      </div>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <p>Đang tải...</p>
+  } @else if (errorMsg()) {
+    <p class="error">{{ errorMsg() }}</p>
+  } @else {
+    <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <table class="w-full text-left text-sm">
+        <thead class="bg-slate-50 text-slate-500 uppercase text-xs tracking-wide">
+        <tr>
+          <th class="px-6 py-3 font-medium">Mã phụ tùng</th>
+          <th class="px-6 py-3 font-medium">Tên phụ tùng</th>
+          <th class="px-6 py-3 font-medium">Giá tiền</th>
+          <th class="px-6 py-3 font-medium">Số lượng</th>
+          @if (role() === 'MANAGER') {
+            <th class="px-6 py-3 font-medium text-right">Thao tác</th>
+          }
+        </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (c of parts(); track c.id) {
+            <tr class="transition hover:bg-slate-50">
+              <td class="px-6 py-3.5 font-medium text-slate-800">{{ c.partNo }}</td>
+              <td class="px-6 py-3.5 text-slate-600">{{ c.partName || '—' }}</td>
+              <td class="px-6 py-3.5 text-slate-600">{{ c.price || '—' }}</td>
+              <td class="px-6 py-3.5 text-slate-600">{{ c.quantity || '—' }}</td>
+              @if (role() === 'MANAGER') {
+                <td class="px-6 py-3.5">
+                  <div class="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      title="Điều chỉnh tồn kho"
+                      aria-label="Điều chỉnh tồn kho"
+                      (click)="openStockModal(c)"
+                      class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-amber-50 hover:text-amber-600"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      title="Sửa"
+                      aria-label="Sửa"
+                      (click)="openEditModal(c)"
+                      class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-blue-50 hover:text-blue-600"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zM19.5 7.125L16.875 4.5" />
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              }
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="4" class="px-6 py-10 text-center text-slate-400">
+                Chưa có phụ tùng nào.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="mt-4 flex items-center justify-between text-sm">
+      <span class="text-slate-500">Tổng: {{ totalElements() }} bản ghi</span>
+      <div class="flex items-center gap-2">
+        <button
+          (click)="prev()"
+          [disabled]="page() === 0"
+          class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
+        >
+          ‹ Trước
+        </button>
+        <span class="px-2 text-slate-600">Trang {{ page() + 1 }} / {{ totalPages() }}</span>
+        <button
+          (click)="next()"
+          [disabled]="page() >= totalPages() - 1"
+          class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
+        >
+          Sau ›
+        </button>
+      </div>
+    </div>
+  }
+</div>
+
+@if (isShowModel()) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+    <div class="w-full max-w-md rounded-xl bg-white shadow-xl">
+      <!-- Header -->
+      <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+        <h3 class="text-base font-semibold text-slate-800">{{ editingId() ? 'Sửa' : 'Thêm' }}</h3>
+        <button
+          type="button"
+          (click)="closeCreateModal()"
+          class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+        >
+          ✕
+        </button>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="onCreateOrUpdatePart()">
+        <!-- Body -->
+        <div class="space-y-4 px-6 py-5">
+          <div>
+            <label class="mb-1.5 block text-xs font-medium text-slate-500">
+              Mã phụ tùng <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              formControlName="partNo"
+              class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+            @if (f.partNo.touched && f.partNo.errors) {
+              <small class="error">
+                @if (f.partNo.errors['required']) { Vui lòng nhập }
+              </small>
+            }
+          </div>
+          <div>
+            <label class="mb-1.5 block text-xs font-medium text-slate-500">
+              Tên phụ tùng
+            </label>
+            <input
+              type="text"
+              formControlName="partName"
+              class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+            @if (f.partName.touched && f.partName.errors) {
+              <small class="error">
+                @if (f.partName.errors['required']) { Vui lòng nhập }
+              </small>
+            }
+          </div>
+
+          <div>
+            <label class="mb-1.5 block text-xs font-medium text-slate-500">
+              Số lượng
+            </label>
+            <input
+              type="text"
+              formControlName="quantity"
+              class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+            @if (f.quantity.touched && f.quantity.errors) {
+              <small class="error">
+                @if (f.quantity.errors['required']) { Vui lòng nhập }
+              </small>
+            }
+          </div>
+
+          <div>
+            <label class="mb-1.5 block text-xs font-medium text-slate-500">
+              Giá tiền
+            </label>
+            <input
+              type="text"
+              formControlName="price"
+              class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+            @if (f.price.touched && f.price.errors) {
+              <small class="error">
+                @if (f.price.errors['required']) { Vui lòng nhập }
+              </small>
+            }
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
+          <button
+            type="button"
+            (click)="closeCreateModal()"
+            [disabled]="saving()"
+            class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
+          >
+            Hủy
+          </button>
+          <button
+            type="submit"
+            [disabled]="saving()"
+            class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {{ saving() ? 'Đang lưu...' : 'Lưu' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}
+
+<!-- Modal: Điều chỉnh tồn kho -->
+@if (isShowStockModal()) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+    <div class="w-full max-w-md rounded-xl bg-white shadow-xl">
+      <!-- Header -->
+      <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+        <h3 class="text-base font-semibold text-slate-800">Điều chỉnh tồn kho</h3>
+        <button
+          type="button"
+          (click)="closeStockModal()"
+          class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+        >
+          ✕
+        </button>
+      </div>
+
+      <form [formGroup]="stockForm" (ngSubmit)="onAdjustStock()">
+        <div class="space-y-4 px-6 py-5">
+          <!-- Báo lỗi ngay trên popup -->
+          @if (stockErrorMsg()) {
+            <div class="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <span class="text-base leading-none">⚠</span>
+              <span>{{ stockErrorMsg() }}</span>
+            </div>
+          }
+
+          <!-- Thông tin phụ tùng + tồn hiện tại -->
+          <div class="rounded-lg bg-slate-50 px-3 py-2 text-sm">
+            <p class="font-medium text-slate-800">{{ adjustingPart()?.partName || adjustingPart()?.partNo }}</p>
+            <p class="text-slate-500">Tồn hiện tại: <span class="font-medium text-slate-700">{{ adjustingPart()?.quantity ?? 0 }}</span></p>
+          </div>
+
+          <div>
+            <label class="mb-1.5 block text-xs font-medium text-slate-500">
+              Số lượng điều chỉnh (delta) <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              formControlName="delta"
+              placeholder="Dương = nhập thêm, âm = xuất bớt"
+              class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+            @if (sf.delta.touched && sf.delta.errors) {
+              <small class="error">
+                @if (sf.delta.errors['required']) { Vui lòng nhập số lượng }
+              </small>
+            }
+          </div>
+
+          <div>
+            <label class="mb-1.5 block text-xs font-medium text-slate-500">
+              Lý do <span class="text-red-500">*</span>
+            </label>
+            <textarea
+              rows="2"
+              formControlName="reason"
+              placeholder="Nhập lý do điều chỉnh..."
+              class="w-full resize-none rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            ></textarea>
+            @if (sf.reason.touched && sf.reason.errors) {
+              <small class="error">
+                @if (sf.reason.errors['required']) { Vui lòng nhập lý do }
+              </small>
+            }
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
+          <button
+            type="button"
+            (click)="closeStockModal()"
+            [disabled]="saving()"
+            class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
+          >
+            Hủy
+          </button>
+          <button
+            type="submit"
+            [disabled]="saving()"
+            class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {{ saving() ? 'Đang lưu...' : 'Xác nhận' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}
